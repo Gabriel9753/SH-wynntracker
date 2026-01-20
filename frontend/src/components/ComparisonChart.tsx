@@ -5,12 +5,7 @@ interface ComparisonChartProps {
   characters: CharacterWithStats[];
 }
 
-interface CharacterData {
-  name: string;
-  level: number;
-  playtime: number;
-  type: string;
-}
+
 
 export default function ComparisonChart({ characters }: ComparisonChartProps) {
   const chartData = useMemo(() => {
