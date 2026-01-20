@@ -3,6 +3,7 @@ services:
     build: ./backend
     container_name: wynntracker-backend
     restart: unless-stopped
+    environment:
       - TZ=${TZ:-Europe/Berlin}
       - DATABASE_URL=sqlite:////data/wynntracker.db
       - ONLINE_THRESHOLD_MINUTES=${ONLINE_THRESHOLD_MINUTES:-15}
