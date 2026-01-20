@@ -1,0 +1,70 @@
+{
+    "[python]": {
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit",
+            "source.fixAll": "explicit"
+        }
+    },
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
+    "python.terminal.activateEnvironment": true,
+    "python.analysis.typeCheckingMode": "basic",
+    "python.analysis.autoImportCompletions": true,
+    "python.terminal.activateEnvInCurrentTerminal": true,
+    // Files to exclude in the explorer
+    "files.exclude": {
+        "**/.git": false,
+        "**/.svn": false,
+        "**/.hg": false,
+        "**/CVS": false,
+        "**/.DS_Store": false,
+        "**/__pycache__": false,
+        "**/.venv": false,
+        "**/node_modules": false,
+        "**/.next": false,
+        "**/.husky": false,
+        "**/drizzle": false,
+        "**/dist": false,
+        "**/.todo.md": false,
+        "**/.vscode": false,
+        "**/.eslintrc.cjs": false,
+        "**/.editorconfig": false,
+        "**/.gitignore": false,
+        "**/.lintstagedrc.mjs": false,
+        "**/.markdownlint.json": false,
+        "**/.markdownlintignore": false,
+        "**/.prettierignore": false,
+        "**/bun.lockb": false,
+        "**/cspell.json": false,
+        "**/package-lock.json": false,
+        "**/pnpm-lock.yaml": false,
+        "**/next-env.d.ts": false,
+        "**/postcss.config.cjs": false,
+        "**/prettier.config.js": false,
+        "**/README.md": false,
+        "**/next.config.js": false,
+        "**/tailwind.config.ts": false,
+        "**/drizzle.config.ts": false,
+        "**/migrate.ts": false,
+        "**/.env.example": false
+    },
+    "[JSON]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.formatOnSave": true
+    },
+    "[YAML]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.formatOnSave": true
+    },
+    "[toml]": {
+        "editor.defaultFormatter": "tamasfe.even-better-toml"
+    },
+    "[markdown]": {
+        "files.trimTrailingWhitespace": false
+    },
+    "[shellscript]": {
+        "editor.defaultFormatter": "foxundermoon.shell-format",
+        "files.eol": "\n"
+    }
+}

@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# Data files
+character_stats.csv
+data/
+
+# Git
+.git/
+.gitignore
+
+# Notebooks and assets (not needed in container)
+notebooks/
+assets/
+
+# Setup scripts
+setup_*.sh
+
+# Documentation
+README.md
+
+# Lock files (we copy these explicitly)
+# uv.lock
+# pyproject.toml

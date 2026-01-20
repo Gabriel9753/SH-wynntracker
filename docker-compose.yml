@@ -1,0 +1,9 @@
+services:
+  wynntracker:
+    build: .
+    container_name: wynntracker
+    restart: unless-stopped
+    volumes:
+      - ./data:/data
+    environment:
+      - TZ=Europe/Berlin
