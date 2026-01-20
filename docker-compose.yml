@@ -7,7 +7,8 @@ services:
       - TZ=Europe/Berlin
       # do not change this path
       - DATABASE_URL=sqlite:////data/wynntracker.db
-      - ONLINE_THRESHOLD_MINUTES=15
+      - ONLINE_THRESHOLD_MINUTES=5
+      - FETCH_INTERVAL_MINUTES=5
       # do not change this path
       - PARQUET_MIGRATION_PATH=/migration.parquet
     volumes:
@@ -19,14 +20,15 @@ services:
       - wynntracker
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        - VITE_ONLINE_THRESHOLD_MINUTES=5
     container_name: wynntracker-frontend
     restart: unless-stopped
     ports:
       # [ADJUST HERE] port mapping: "HOST_PORT:CONTAINER_PORT"
       - "3955:80"
-    environment:
-      - VITE_ONLINE_THRESHOLD_MINUTES=15
     depends_on:
       - backend
     networks:

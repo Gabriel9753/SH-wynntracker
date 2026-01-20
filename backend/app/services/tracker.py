@@ -10,7 +10,9 @@ from sqlalchemy.orm import Session
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-FETCH_INTERVAL_MINUTES = 15
+import os
+
+FETCH_INTERVAL_MINUTES = int(os.getenv("FETCH_INTERVAL_MINUTES", 15))
 CHECK_INTERVAL_SECONDS = 60
 
 
