@@ -1,9 +1,31 @@
 services:
-  wynntracker:
-    build: .
-    container_name: wynntracker
+  backend:
+    build: ./backend
+    container_name: wynntracker-backend
     restart: unless-stopped
+      - TZ=${TZ:-Europe/Berlin}
+      - DATABASE_URL=sqlite:////data/wynntracker.db
+      - ONLINE_THRESHOLD_MINUTES=${ONLINE_THRESHOLD_MINUTES:-15}
+      - PARQUET_MIGRATION_PATH=/migration.parquet
     volumes:
-      - ./data:/data
+      - ${DATA_PATH:-./data}:/data
+      - ${PARQUET_FILE:-./data/migration.parquet}:/migration.parquet
+    networks:
+      - wynntracker
+
+  frontend:
+    build: ./frontend
+    container_name: wynntracker-frontend
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:80"
     environment:
-      - TZ=Europe/Berlin
+      - VITE_ONLINE_THRESHOLD_MINUTES=${ONLINE_THRESHOLD_MINUTES:-15}
+    depends_on:
+      - backend
+    networks:
+      - wynntracker
+
+networks:
+  wynntracker:
+    driver: bridge
