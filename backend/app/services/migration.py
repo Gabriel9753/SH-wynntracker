@@ -42,6 +42,18 @@ def migrate_parquet(parquet_path: str, db: Session):
 
     print(f"Found {len(df)} rows")
 
+    if df.empty:
+        print("Parquet file is empty. Skipping migration.")
+        return
+
+    required_columns = ["player_uuid", "character_uuid"]
+    missing_columns = [col for col in required_columns if col not in df.columns]
+
+    if missing_columns:
+        print(f"Parquet file missing required columns: {missing_columns}. Skipping migration.")
+        print(f"Available columns: {list(df.columns)}")
+        return
+
     # Ensure tables exist
     Base.metadata.create_all(bind=engine)
 

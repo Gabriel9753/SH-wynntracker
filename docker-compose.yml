@@ -10,7 +10,7 @@ services:
       - PARQUET_MIGRATION_PATH=/migration.parquet
     volumes:
       - ${DATA_PATH:-./data}:/data
-      - ${PARQUET_FILE:-./data/migration.parquet}:/migration.parquet
+      - ${PARQUET_FILE:-./character_stats.parquet}:/migration.parquet
     networks:
       - wynntracker
 
@@ -19,7 +19,7 @@ services:
     container_name: wynntracker-frontend
     restart: unless-stopped
     ports:
-      - "${PORT:-3000}:80"
+      - "${PORT:-3955}:80"
     environment:
       - VITE_ONLINE_THRESHOLD_MINUTES=${ONLINE_THRESHOLD_MINUTES:-15}
     depends_on:
