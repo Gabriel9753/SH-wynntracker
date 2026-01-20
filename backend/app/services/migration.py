@@ -166,7 +166,7 @@ def migrate_parquet(parquet_path: str, db: Session):
 
             if changed:
                 timestamp = row.get("timestamp")
-                valid_from = datetime.fromisoformat(str(timestamp)) if pd.notna(timestamp) else datetime.utcnow()
+                valid_from = datetime.fromisoformat(str(timestamp)) if pd.notna(timestamp) else datetime.now()
 
                 if prev_stats and prev_stats.valid_until is None:
                     prev_stats.valid_until = valid_from

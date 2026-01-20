@@ -19,15 +19,27 @@ CHECK_INTERVAL_SECONDS = 60
 def should_fetch(last_fetched_at: datetime | None) -> bool:
     if last_fetched_at is None:
         return True
-    elapsed = datetime.utcnow() - last_fetched_at
-    return elapsed >= timedelta(minutes=FETCH_INTERVAL_MINUTES)
+
+    now = datetime.now()
+    elapsed = now - last_fetched_at
+
+    # If last fetch is in the future (e.g. migration timezone mismatch), fetch immediately
+    if elapsed.total_seconds() < 0:
+        logger.warning(f"Future timestamp detected ({last_fetched_at} > {now}), forcing fetch.")
+        return True
+
+    should = elapsed >= timedelta(minutes=FETCH_INTERVAL_MINUTES)
+    logger.debug(
+        f"Checking fetch: Last: {last_fetched_at}, Now: {now}, Elapsed: {elapsed}, Interval: {FETCH_INTERVAL_MINUTES}m -> {should}"
+    )
+    return should
 
 
 def time_until_next_fetch(last_fetched_at: datetime | None) -> timedelta:
     if last_fetched_at is None:
         return timedelta(seconds=0)
     next_fetch = last_fetched_at + timedelta(minutes=FETCH_INTERVAL_MINUTES)
-    remaining = next_fetch - datetime.utcnow()
+    remaining = next_fetch - datetime.now()
     return max(remaining, timedelta(seconds=0))
 
 

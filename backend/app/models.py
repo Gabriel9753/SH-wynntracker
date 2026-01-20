@@ -13,8 +13,8 @@ class Player(Base):
     rank = Column(String(50), nullable=True)
     first_join = Column(DateTime, nullable=True)
     playtime_total_days = Column(Float, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     characters = relationship("Character", back_populates="player", cascade="all, delete-orphan")
 
@@ -28,7 +28,7 @@ class Character(Base):
     nickname = Column(String(100), nullable=True)
     gamemodes = Column(Text, nullable=True)
     last_fetched_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
 
     player = relationship("Player", back_populates="characters")
     stats = relationship("CharacterStats", back_populates="character", cascade="all, delete-orphan")
@@ -39,7 +39,7 @@ class CharacterStats(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     character_uuid = Column(String(36), ForeignKey("characters.uuid"), nullable=False, index=True)
-    valid_from = Column(DateTime, nullable=False, default=datetime.utcnow)
+    valid_from = Column(DateTime, nullable=False, default=datetime.now)
     valid_until = Column(DateTime, nullable=True)
 
     level = Column(Integer, nullable=True)
@@ -74,6 +74,7 @@ class CharacterStats(Base):
     raids = Column(JSON, nullable=True)
     quests_list = Column(Text, nullable=True)
 
+    character = relationship("Character", back_populates="stats")
     character = relationship("Character", back_populates="stats")
     character = relationship("Character", back_populates="stats")
     character = relationship("Character", back_populates="stats")

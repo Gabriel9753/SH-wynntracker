@@ -57,7 +57,7 @@ def get_or_create_player(db: Session, player_data: dict) -> models.Player:
         player.username = player_data.get("username", player.username)
         player.rank = player_data.get("rank", player.rank)
         player.playtime_total_days = player_data.get("playtime_total_days", player.playtime_total_days)
-        player.updated_at = datetime.utcnow()
+        player.updated_at = datetime.now()
         db.commit()
         db.refresh(player)
         return player
@@ -118,7 +118,7 @@ def delete_character(db: Session, character_uuid: str) -> bool:
 def update_character_last_fetched(db: Session, character_uuid: str) -> None:
     character = get_character(db, character_uuid)
     if character:
-        character.last_fetched_at = datetime.utcnow()
+        character.last_fetched_at = datetime.now()
         db.commit()
 
 
@@ -160,12 +160,12 @@ def create_stats_if_changed(db: Session, character_uuid: str, stats_data: dict) 
         return None
 
     if latest and latest.valid_until is None:
-        latest.valid_until = datetime.utcnow()
+        latest.valid_until = datetime.now()
         db.commit()
 
     db_stats = models.CharacterStats(
         character_uuid=character_uuid,
-        valid_from=datetime.utcnow(),
+        valid_from=datetime.now(),
         **{k: v for k, v in stats_data.items() if k in STATS_COMPARE_FIELDS},
     )
     db.add(db_stats)
