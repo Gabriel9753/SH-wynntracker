@@ -18,7 +18,7 @@ export default function StatsChart({ data, dataKey, label }: StatsChartProps) {
   const svgRef = useRef<SVGSVGElement>(null);
 
   const chartData = useMemo(() => {
-    return data
+    const formattedData = data
       .map(stat => ({
         date: new Date(stat.valid_from),
         value: stat[dataKey] as number | null,
@@ -31,6 +31,14 @@ export default function StatsChart({ data, dataKey, label }: StatsChartProps) {
       }))
       .filter((d): d is DataPoint => d.value != null)
       .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    const MAX_POINTS = 150;
+    if (formattedData.length <= MAX_POINTS) {
+      return formattedData;
+    }
+
+    const step = Math.ceil(formattedData.length / MAX_POINTS);
+    return formattedData.filter((_, index) => index % step === 0 || index === formattedData.length - 1);
   }, [data, dataKey]);
 
   if (chartData.length < 2) {

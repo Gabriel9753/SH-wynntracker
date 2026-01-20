@@ -43,9 +43,10 @@ def get_character(uuid: str, db: Session = Depends(get_db)):
     threshold_minutes = int(os.getenv("ONLINE_THRESHOLD_MINUTES", "15"))
     if current_stats and current_stats.valid_from:
         valid_from = current_stats.valid_from
-        if valid_from.tzinfo is None:
-            valid_from = valid_from.replace(tzinfo=timezone.utc)
-        cutoff = datetime.now(timezone.utc) - timedelta(minutes=threshold_minutes)
+        if valid_from.tzinfo is not None:
+            valid_from = valid_from.replace(tzinfo=None)
+
+        cutoff = datetime.now() - timedelta(minutes=threshold_minutes)
         is_recently_active = valid_from >= cutoff
 
     return schemas.CharacterWithStats(
