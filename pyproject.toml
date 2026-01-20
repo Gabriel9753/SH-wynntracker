@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Wynncraft character stats tracker"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["pandas>=2.3.3", "requests>=2.32.0"]
+dependencies = ["pandas>=2.3.3", "pyarrow>=18.1.0", "requests>=2.32.0"]
 
 # ruff settings (https://docs.astral.sh/ruff/)
 [tool.ruff]

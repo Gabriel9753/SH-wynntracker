@@ -135,12 +135,12 @@ class WynnCharacterTracker:
         self.df = pd.concat([self.df, new_row], ignore_index=True)
         if output_file:
             output_file.parent.mkdir(parents=True, exist_ok=True)
-            self.df.to_csv(output_file, index=False)
+            self.df.to_parquet(output_file, index=False)
         return self.df
 
 
 class MultiCharacterTracker:
-    def __init__(self, character_list: list[tuple[str, str]], output_file: str = "character_stats.csv"):
+    def __init__(self, character_list: list[tuple[str, str]], output_file: str = "character_stats.parquet"):
         self.character_list = character_list
         self.output_file = Path(output_file)
         self.df = self._load_data()
@@ -152,7 +152,7 @@ class MultiCharacterTracker:
 
     def _load_data(self) -> pd.DataFrame:
         if self.output_file.exists():
-            return pd.read_csv(self.output_file)
+            return pd.read_parquet(self.output_file)
         return pd.DataFrame()
 
     def fetch_all(self) -> None:
@@ -179,7 +179,7 @@ class MultiCharacterTracker:
                 print(f" Error for {key}: {e}")
 
         self.output_file.parent.mkdir(parents=True, exist_ok=True)
-        self.df.to_csv(self.output_file, index=False)
+        self.df.to_parquet(self.output_file, index=False)
         print(f"All stats saved to {self.output_file}")
 
     def track_continuous(self, interval_minutes: int = 15) -> None:
@@ -227,7 +227,7 @@ if __name__ == "__main__":
         print("No characters to track. Add URLs or tuples to the configuration.")
     else:
         output_dir = os.getenv("OUTPUT_DIR", ".")
-        OUTPUT_FILE = os.path.join(output_dir, "character_stats.csv")
+        OUTPUT_FILE = os.path.join(output_dir, "character_stats.parquet")
 
         tracker = MultiCharacterTracker(characters_to_track, OUTPUT_FILE)
         tracker.track_continuous(interval_minutes=15)
