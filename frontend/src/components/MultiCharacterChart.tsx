@@ -160,7 +160,7 @@ function CustomTooltip({ active, payload, label, seriesMap }: CustomTooltipProps
 export default function MultiCharacterChart({ series, onTimeRangeChange }: MultiCharacterChartProps) {
   const [timeRange, setTimeRange] = useState('24h');
   const [selectedStat, setSelectedStat] = useState<keyof CharacterStats>('level');
-  const [visibleSeries, setVisibleSeries] = useState<Set<string>>(new Set(series.map(s => s.characterUuid)));
+  const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set());
   const [showMoreStats, setShowMoreStats] = useState(false);
   const [hoveredSeries, setHoveredSeries] = useState<string | null>(null);
 
@@ -174,8 +174,16 @@ export default function MultiCharacterChart({ series, onTimeRangeChange }: Multi
     }
   };
 
+  const visibleSeries = useMemo(() => {
+    return new Set(
+      series
+        .filter(s => !hiddenSeries.has(s.characterUuid))
+        .map(s => s.characterUuid)
+    );
+  }, [series, hiddenSeries]);
+
   const toggleSeriesVisibility = (uuid: string) => {
-    setVisibleSeries(prev => {
+    setHiddenSeries(prev => {
       const newSet = new Set(prev);
       if (newSet.has(uuid)) {
         newSet.delete(uuid);

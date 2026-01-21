@@ -156,7 +156,7 @@ export default function StatsDashboard({ character }: StatsDashboardProps) {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (timeoutRef) clearTimeout(timeoutRef);
     };
-  }, [character.uuid, timeRange]);
+  }, [character, timeRange]);
 
   const handleTimeRangeChange = (range: string, fromDate?: Date, toDate?: Date) => {
     setTimeRange(range);
