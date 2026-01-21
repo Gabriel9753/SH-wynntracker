@@ -122,12 +122,20 @@ export default function HomePage({ onSelectCharacter }: HomePageProps) {
   }, [characters]);
 
   const chartSeries: DataSeries[] = useMemo(() => {
-    return sortedCharacters.map((char, idx) => ({
-      characterUuid: char.uuid,
-      characterName: char.player?.username || char.nickname || 'Unknown',
-      color: CHART_COLORS[idx % CHART_COLORS.length],
-      data: historyData[char.uuid] || [],
-    }));
+    return sortedCharacters.map((char, idx) => {
+      let data = historyData[char.uuid] || [];
+      
+      if (data.length === 0 && char.current_stats) {
+        data = [char.current_stats];
+      }
+      
+      return {
+        characterUuid: char.uuid,
+        characterName: char.player?.username || char.nickname || 'Unknown',
+        color: CHART_COLORS[idx % CHART_COLORS.length],
+        data,
+      };
+    });
   }, [sortedCharacters, historyData]);
 
   return (

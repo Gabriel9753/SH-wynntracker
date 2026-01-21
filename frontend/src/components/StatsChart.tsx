@@ -22,6 +22,9 @@ interface StatsChartProps {
 function formatXAxisTick(timestamp: number, rangeKey: string): string {
   const date = new Date(timestamp);
   switch (rangeKey) {
+    case '1h':
+    case '3h':
+    case '6h':
     case 'today':
     case '24h':
       return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
@@ -38,6 +41,12 @@ function formatXAxisTick(timestamp: number, rangeKey: string): string {
 
 function getTickInterval(rangeKey: string): number {
   switch (rangeKey) {
+    case '1h':
+      return 10 * 60 * 1000;
+    case '3h':
+      return 30 * 60 * 1000;
+    case '6h':
+      return 60 * 60 * 1000;
     case 'today':
     case '24h':
       return 60 * 60 * 1000;
@@ -66,10 +75,16 @@ export default function StatsChart({
   timeRange = '24h'
 }: StatsChartProps) {
   const chartData = useMemo(() => {
-    const filtered = data.map(stat => ({
-      timestamp: new Date(stat.valid_from).getTime(),
-      value: stat[dataKey] as number | null,
-    })).filter(d => d.value !== null && d.value !== undefined);
+    const filtered = data.map(stat => {
+      let ts = stat.valid_from;
+      if (typeof ts === 'string' && ts.endsWith('Z')) {
+        ts = ts.slice(0, -1);
+      }
+      return {
+        timestamp: new Date(ts).getTime(),
+        value: stat[dataKey] as number | null,
+      };
+    }).filter(d => d.value !== null && d.value !== undefined);
     
     const maxPoints = getMaxPointsForRange(timeRange);
     return decimateData(filtered, maxPoints);

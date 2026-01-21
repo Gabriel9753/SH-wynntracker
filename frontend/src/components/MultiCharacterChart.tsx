@@ -7,10 +7,12 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  ReferenceArea,
 } from 'recharts';
 import type { CharacterStats } from '../types';
 import TimeRangePicker, { getDateRange } from './TimeRangePicker';
 import StatIcon from './StatIcon';
+import SessionList from './SessionList';
 
 interface DataSeries {
   characterUuid: string;
@@ -61,6 +63,9 @@ const SECONDARY_STATS: { key: keyof CharacterStats; label: string }[] = [
 function formatXAxisTick(timestamp: number, rangeKey: string): string {
   const date = new Date(timestamp);
   switch (rangeKey) {
+    case '1h':
+    case '3h':
+    case '6h':
     case 'today':
     case '24h':
       return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
@@ -77,6 +82,12 @@ function formatXAxisTick(timestamp: number, rangeKey: string): string {
 
 function getTickInterval(rangeKey: string): number {
   switch (rangeKey) {
+    case '1h':
+      return 10 * 60 * 1000;
+    case '3h':
+      return 30 * 60 * 1000;
+    case '6h':
+      return 60 * 60 * 1000;
     case 'today':
     case '24h':
       return 60 * 60 * 1000;
@@ -115,14 +126,21 @@ function CustomTooltip({ active, payload, label, seriesMap }: CustomTooltipProps
   const validPayload = payload.filter(p => p.value !== null && p.value !== undefined);
   if (validPayload.length === 0) return null;
 
+  const uniqueEntries = new Map();
+  validPayload.forEach(entry => {
+    if (!uniqueEntries.has(entry.dataKey)) {
+      uniqueEntries.set(entry.dataKey, entry);
+    }
+  });
+
   return (
     <div className="chart-tooltip">
       <div className="chart-tooltip-date">
         {new Date(label).toLocaleString('de-DE')}
       </div>
       <div className="chart-tooltip-items">
-        {validPayload.map(entry => {
-          const series = seriesMap.get(entry.dataKey);
+        {Array.from(uniqueEntries.values()).map(entry => {
+          const series = seriesMap.get(entry.dataKey as string);
           return (
             <div key={entry.dataKey} className="chart-tooltip-item">
               <div
@@ -130,7 +148,7 @@ function CustomTooltip({ active, payload, label, seriesMap }: CustomTooltipProps
                 style={{ background: entry.color }}
               />
               <span className="chart-tooltip-name">{series?.characterName || entry.name}</span>
-              <span className="chart-tooltip-value">{formatValue(entry.value!)}</span>
+              <span className="chart-tooltip-value">{formatValue(entry.value as number)}</span>
             </div>
           );
         })}
@@ -144,6 +162,7 @@ export default function MultiCharacterChart({ series, onTimeRangeChange }: Multi
   const [selectedStat, setSelectedStat] = useState<keyof CharacterStats>('level');
   const [visibleSeries, setVisibleSeries] = useState<Set<string>>(new Set(series.map(s => s.characterUuid)));
   const [showMoreStats, setShowMoreStats] = useState(false);
+  const [hoveredSeries, setHoveredSeries] = useState<string | null>(null);
 
   const handleTimeRangeChange = (range: string, fromDate?: Date, toDate?: Date) => {
     setTimeRange(range);
@@ -173,11 +192,21 @@ export default function MultiCharacterChart({ series, onTimeRangeChange }: Multi
     return map;
   }, [series]);
 
+
   const chartData = useMemo(() => {
     const allTimestamps = new Set<number>();
+    
+    const { from, to } = getDateRange(timeRange);
+    allTimestamps.add(from.getTime());
+    allTimestamps.add(to.getTime());
+
     series.forEach(s => {
       s.data.forEach(stat => {
-        allTimestamps.add(new Date(stat.valid_from).getTime());
+        let ts = stat.valid_from;
+        if (typeof ts === 'string' && ts.endsWith('Z')) {
+          ts = ts.slice(0, -1);
+        }
+        allTimestamps.add(new Date(ts).getTime());
       });
     });
 
@@ -190,22 +219,40 @@ export default function MultiCharacterChart({ series, onTimeRangeChange }: Multi
           point[s.characterUuid] = null;
           return;
         }
-        const stat = s.data.find(d => new Date(d.valid_from).getTime() === timestamp);
+        const stat = s.data.find(d => {
+          let ts = d.valid_from;
+          if (typeof ts === 'string' && ts.endsWith('Z')) {
+            ts = ts.slice(0, -1);
+          }
+          return new Date(ts).getTime() === timestamp;
+        });
         if (stat) {
           point[s.characterUuid] = stat[selectedStat] as number | null;
         }
       });
       return point;
     });
-  }, [series, selectedStat, visibleSeries]);
+  }, [series, selectedStat, visibleSeries, timeRange]);
 
-  const interpolatedChartData = useMemo(() => {
-    if (chartData.length === 0) return [];
+  const { interpolatedData, realDataMarkers } = useMemo(() => {
+    if (chartData.length === 0) return { interpolatedData: [], realDataMarkers: new Map<string, Set<number>>() };
 
-    const result = [...chartData];
+    const result = chartData.map(p => ({ ...p }));
+    const markers = new Map<string, Set<number>>();
 
     series.forEach(s => {
       if (!visibleSeries.has(s.characterUuid)) return;
+      
+      const realTimestamps = new Set<number>();
+      
+      chartData.forEach((point) => {
+        const val = point[s.characterUuid];
+        if (val !== null && val !== undefined) {
+          realTimestamps.add(point.timestamp as number);
+        }
+      });
+      
+      markers.set(s.characterUuid, realTimestamps);
 
       let lastValue: number | null = null;
       for (let i = 0; i < result.length; i++) {
@@ -216,16 +263,39 @@ export default function MultiCharacterChart({ series, onTimeRangeChange }: Multi
           result[i][s.characterUuid] = lastValue;
         }
       }
+
+      let firstValue: number | null = null;
+      for (let i = 0; i < result.length; i++) {
+        const val = result[i][s.characterUuid];
+        if (val !== null && val !== undefined) {
+          firstValue = val;
+          break;
+        }
+      }
+      if (firstValue !== null) {
+        for (let i = 0; i < result.length; i++) {
+          const val = result[i][s.characterUuid];
+          if (val !== null && val !== undefined) {
+            break;
+          }
+          result[i][s.characterUuid] = firstValue;
+        }
+      }
     });
 
-    return result;
+    return { interpolatedData: result, realDataMarkers: markers };
   }, [chartData, series, visibleSeries]);
 
+  const interpolatedChartData = interpolatedData;
+
+  const xDomain = useMemo(() => {
+    const dates = getDateRange(timeRange);
+    return [dates.from.getTime(), dates.to.getTime()] as [number, number];
+  }, [timeRange]);
+
   const xTicks = useMemo(() => {
-    if (interpolatedChartData.length === 0) return [];
     const interval = getTickInterval(timeRange);
-    const minTime = interpolatedChartData[0]?.timestamp || 0;
-    const maxTime = interpolatedChartData[interpolatedChartData.length - 1]?.timestamp || 0;
+    const [minTime, maxTime] = xDomain;
 
     const ticks: number[] = [];
     const startTick = Math.ceil(minTime / interval) * interval;
@@ -233,7 +303,7 @@ export default function MultiCharacterChart({ series, onTimeRangeChange }: Multi
       ticks.push(t);
     }
     return ticks;
-  }, [interpolatedChartData, timeRange]);
+  }, [xDomain, timeRange]);
 
   const yDomain = useMemo(() => {
     if (interpolatedChartData.length === 0) return [0, 'auto'] as [number, string];
@@ -259,6 +329,138 @@ export default function MultiCharacterChart({ series, onTimeRangeChange }: Multi
     const padding = (maxValue - minValue) * 0.1;
     return [Math.max(0, Math.floor(minValue - padding)), Math.ceil(maxValue + padding)] as [number, number];
   }, [interpolatedChartData, series, visibleSeries]);
+
+  const { solidChartData, dashedChartData } = useMemo(() => {
+    const INTERPOLATION_THRESHOLD = 60 * 60 * 1000;
+    
+    const solid = interpolatedChartData.map(point => {
+      const newPoint: Record<string, number | null> = { timestamp: point.timestamp as number };
+      
+      series.forEach(s => {
+        if (!visibleSeries.has(s.characterUuid)) {
+          newPoint[s.characterUuid] = null;
+          return;
+        }
+        
+        const realTs = realDataMarkers.get(s.characterUuid);
+        if (!realTs) {
+          newPoint[s.characterUuid] = null;
+          return;
+        }
+        
+        const currentTs = point.timestamp as number;
+        let minDistance = Infinity;
+        
+        realTs.forEach(ts => {
+          const dist = Math.abs(currentTs - ts);
+          if (dist < minDistance) {
+            minDistance = dist;
+          }
+        });
+        
+        if (minDistance <= INTERPOLATION_THRESHOLD) {
+          newPoint[s.characterUuid] = point[s.characterUuid] as number | null;
+        } else {
+          newPoint[s.characterUuid] = null;
+        }
+      });
+      
+      return newPoint;
+    });
+
+    const dashed = interpolatedChartData.map((point, index) => {
+      const newPoint: Record<string, number | null> = { timestamp: point.timestamp as number };
+      
+      series.forEach(s => {
+        if (!visibleSeries.has(s.characterUuid)) {
+          newPoint[s.characterUuid] = null;
+          return;
+        }
+        
+        const realTs = realDataMarkers.get(s.characterUuid);
+        if (!realTs) {
+          // If no real data at all (but we have fallback data), make it all dashed
+          newPoint[s.characterUuid] = point[s.characterUuid] as number | null;
+          return;
+        }
+        
+        const currentTs = point.timestamp as number;
+        let minDistance = Infinity;
+        
+        realTs.forEach(ts => {
+          const dist = Math.abs(currentTs - ts);
+          if (dist < minDistance) {
+            minDistance = dist;
+          }
+        });
+        
+        const isDashed = minDistance > INTERPOLATION_THRESHOLD;
+        
+        // Determine if neighbors are dashed to include boundary points
+        let prevPixelDashed = false;
+        if (index > 0) {
+           const prevTs = interpolatedChartData[index - 1].timestamp as number;
+           let prevMinDist = Infinity;
+           realTs.forEach(ts => {
+             const dist = Math.abs(prevTs - ts);
+             if (dist < prevMinDist) prevMinDist = dist;
+           });
+           if (prevMinDist > INTERPOLATION_THRESHOLD) prevPixelDashed = true;
+        }
+
+        let nextPixelDashed = false;
+        if (index < interpolatedChartData.length - 1) {
+           const nextTs = interpolatedChartData[index + 1].timestamp as number;
+           let nextMinDist = Infinity;
+           realTs.forEach(ts => {
+             const dist = Math.abs(nextTs - ts);
+             if (dist < nextMinDist) nextMinDist = dist;
+           });
+           if (nextMinDist > INTERPOLATION_THRESHOLD) nextPixelDashed = true;
+        }
+
+        if (isDashed || prevPixelDashed || nextPixelDashed) {
+          newPoint[s.characterUuid] = point[s.characterUuid] as number | null;
+        } else {
+          newPoint[s.characterUuid] = null;
+        }
+      });
+      
+      return newPoint;
+    });
+
+    return { solidChartData: solid, dashedChartData: dashed };
+  }, [interpolatedChartData, series, visibleSeries, realDataMarkers]);
+
+  const offlineZones = useMemo(() => {
+    if (!hoveredSeries || !dashedChartData.length) return [];
+
+    const zones: { x1: number; x2: number }[] = [];
+    let startTimestamp: number | null = null;
+
+    dashedChartData.forEach((point, index) => {
+      const val = point[hoveredSeries];
+      const hasValue = val !== null && val !== undefined;
+
+      if (hasValue && startTimestamp === null) {
+        startTimestamp = point.timestamp as number;
+      } else if (!hasValue && startTimestamp !== null) {
+
+        const prevPoint = dashedChartData[index - 1];
+        if (prevPoint) {
+           zones.push({ x1: startTimestamp, x2: prevPoint.timestamp as number });
+        }
+        startTimestamp = null;
+      }
+    });
+
+    if (startTimestamp !== null) {
+      const lastPoint = dashedChartData[dashedChartData.length - 1];
+      zones.push({ x1: startTimestamp, x2: lastPoint.timestamp as number });
+    }
+
+    return zones;
+  }, [dashedChartData, hoveredSeries]);
 
   const hasData = interpolatedChartData.length > 0;
 
@@ -315,18 +517,31 @@ export default function MultiCharacterChart({ series, onTimeRangeChange }: Multi
       <div className="chart-container">
         {hasData ? (
           <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={interpolatedChartData} margin={{ top: 10, right: 30, left: 0, bottom: 10 }}>
+            <LineChart margin={{ top: 10, right: 30, left: 0, bottom: 10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" strokeOpacity={0.5} />
+              
+              {offlineZones.map((zone, idx) => (
+                <ReferenceArea
+                  key={idx}
+                  x1={zone.x1}
+                  x2={zone.x2}
+                  fill="var(--border-color)"
+                  fillOpacity={0.15}
+                />
+              ))}
+
               <XAxis
                 dataKey="timestamp"
                 type="number"
-                domain={['dataMin', 'dataMax']}
+                domain={xDomain}
                 ticks={xTicks}
                 tickFormatter={(value) => formatXAxisTick(value, timeRange)}
                 stroke="var(--text-muted)"
                 fontSize={11}
                 tickLine={false}
                 axisLine={{ stroke: 'var(--border-color)' }}
+                allowDuplicatedCategory={false}
+                allowDataOverflow={true}
               />
               <YAxis
                 stroke="var(--text-muted)"
@@ -339,20 +554,44 @@ export default function MultiCharacterChart({ series, onTimeRangeChange }: Multi
               />
               <Tooltip
                 content={<CustomTooltip seriesMap={seriesMap} />}
-                cursor={{ stroke: 'var(--border-hover)', strokeWidth: 1 }}
+                cursor={{ stroke: 'var(--text-muted)', strokeWidth: 1, strokeDasharray: '4 4' }}
               />
               {series.map((s, idx) => (
                 visibleSeries.has(s.characterUuid) && (
                   <Line
-                    key={s.characterUuid}
+                    key={`${s.characterUuid}-dashed`}
+                    data={dashedChartData}
+                    type="monotone"
+                    dataKey={s.characterUuid}
+                    name={`${s.characterName} (offline)`}
+                    stroke={s.color || CHART_COLORS[idx % CHART_COLORS.length]}
+                    strokeWidth={2}
+                    strokeDasharray="6 4"
+                    strokeOpacity={hoveredSeries && hoveredSeries !== s.characterUuid ? 0.1 : 0.5}
+                    dot={false}
+                    activeDot={false}
+                    connectNulls={false}
+                    legendType="none"
+                    isAnimationActive={false}
+                  />
+                )
+              ))}
+              {series.map((s, idx) => (
+                visibleSeries.has(s.characterUuid) && (
+                  <Line
+                    key={`${s.characterUuid}-solid`}
+                    data={solidChartData}
                     type="monotone"
                     dataKey={s.characterUuid}
                     name={s.characterName}
                     stroke={s.color || CHART_COLORS[idx % CHART_COLORS.length]}
-                    strokeWidth={2.5}
+                    strokeWidth={hoveredSeries === s.characterUuid ? 3 : 2.5}
+                    strokeOpacity={hoveredSeries && hoveredSeries !== s.characterUuid ? 0.1 : 1}
                     dot={false}
                     activeDot={{ r: 6, strokeWidth: 2, stroke: '#fff' }}
                     connectNulls={false}
+                    onMouseEnter={() => setHoveredSeries(s.characterUuid)}
+                    onMouseLeave={() => setHoveredSeries(null)}
                   />
                 )
               ))}
@@ -370,7 +609,11 @@ export default function MultiCharacterChart({ series, onTimeRangeChange }: Multi
           <button
             key={s.characterUuid}
             onClick={() => toggleSeriesVisibility(s.characterUuid)}
-            className={`legend-button ${!visibleSeries.has(s.characterUuid) ? 'inactive' : ''}`}
+            onMouseEnter={() => setHoveredSeries(s.characterUuid)}
+            onMouseLeave={() => setHoveredSeries(null)}
+            className={`legend-button ${!visibleSeries.has(s.characterUuid) ? 'inactive' : ''} ${
+              hoveredSeries && hoveredSeries !== s.characterUuid && visibleSeries.has(s.characterUuid) ? 'opacity-50' : ''
+            }`}
           >
             <div
               className="legend-dot"
@@ -380,6 +623,8 @@ export default function MultiCharacterChart({ series, onTimeRangeChange }: Multi
           </button>
         ))}
       </div>
+
+      <SessionList series={series} visibleSeries={visibleSeries} />
     </div>
   );
 }

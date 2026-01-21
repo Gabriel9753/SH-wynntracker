@@ -6,6 +6,9 @@ interface TimeRangePickerProps {
 }
 
 const PRESETS = [
+  { key: '1h', label: 'Last 1h' },
+  { key: '3h', label: 'Last 3h' },
+  { key: '6h', label: 'Last 6h' },
   { key: 'today', label: 'Today (00:00)' },
   { key: '24h', label: 'Last 24h' },
   { key: '3d', label: '3 Days' },
@@ -20,6 +23,15 @@ function getDateRange(key: string): { from: Date; to: Date } {
   let from = new Date();
 
   switch (key) {
+    case '1h':
+      from = new Date(now.getTime() - 1 * 60 * 60 * 1000);
+      break;
+    case '3h':
+      from = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+      break;
+    case '6h':
+      from = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+      break;
     case 'today':
       from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       break;
