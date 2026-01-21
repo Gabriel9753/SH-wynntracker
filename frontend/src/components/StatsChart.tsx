@@ -9,6 +9,7 @@ import {
   AreaChart,
 } from 'recharts';
 import type { CharacterStats } from '../types';
+import { decimateData, getMaxPointsForRange } from '../utils/dataDecimation';
 
 interface StatsChartProps {
   data: CharacterStats[];
@@ -62,14 +63,17 @@ export default function StatsChart({
   dataKey, 
   label, 
   color = '#6366f1',
-  timeRange = '7d'
+  timeRange = '24h'
 }: StatsChartProps) {
   const chartData = useMemo(() => {
-    return data.map(stat => ({
+    const filtered = data.map(stat => ({
       timestamp: new Date(stat.valid_from).getTime(),
       value: stat[dataKey] as number | null,
     })).filter(d => d.value !== null && d.value !== undefined);
-  }, [data, dataKey]);
+    
+    const maxPoints = getMaxPointsForRange(timeRange);
+    return decimateData(filtered, maxPoints);
+  }, [data, dataKey, timeRange]);
 
   const xTicks = useMemo(() => {
     if (chartData.length === 0) return [];

@@ -6,8 +6,8 @@ interface TimeRangePickerProps {
 }
 
 const PRESETS = [
-  { key: 'today', label: 'Today' },
-  { key: '24h', label: '24h' },
+  { key: 'today', label: 'Today (00:00)' },
+  { key: '24h', label: 'Last 24h' },
   { key: '3d', label: '3 Days' },
   { key: '7d', label: '7 Days' },
   { key: '30d', label: '30 Days' },

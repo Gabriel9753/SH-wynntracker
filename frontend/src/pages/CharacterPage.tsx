@@ -15,19 +15,50 @@ export default function CharacterPage({ characterUuid, onBack }: CharacterPagePr
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function load() {
+    async function load(isInitial = false) {
       try {
-        setLoading(true);
+        if (isInitial) setLoading(true);
         const data = await fetchCharacter(characterUuid);
         setCharacter(data);
         setError(null);
       } catch (e) {
         setError('Failed to load character');
       } finally {
-        setLoading(false);
+        if (isInitial) setLoading(false);
       }
     }
-    load();
+    
+    load(true);
+    
+    let timeoutRef: number | null = null;
+    let currentCharacter = character;
+    
+    const scheduleNext = () => {
+      if (document.hidden) return;
+      
+      const interval = currentCharacter?.is_recently_active ? 2 * 60 * 1000 : 5 * 60 * 1000;
+      timeoutRef = window.setTimeout(async () => {
+        await load(false);
+        scheduleNext();
+      }, interval);
+    };
+    
+    const handleVisibilityChange = () => {
+      if (document.hidden && timeoutRef) {
+        clearTimeout(timeoutRef);
+        timeoutRef = null;
+      } else if (!document.hidden) {
+        scheduleNext();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    scheduleNext();
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (timeoutRef) clearTimeout(timeoutRef);
+    };
   }, [characterUuid]);
 
   return (

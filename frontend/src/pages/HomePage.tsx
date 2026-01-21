@@ -36,13 +36,44 @@ export default function HomePage({ onSelectCharacter }: HomePageProps) {
   }, [loadCharacters]);
 
   useEffect(() => {
-    if (characters.length > 0) {
-      const dates = getDateRange('7d');
-      loadHistory(dates.from, dates.to);
-    }
-  }, [characters]);
+    if (!characters.length) return;
+    
+    const getPollingInterval = () => {
+      const hasActiveChar = characters.some(char => char.is_recently_active);
+      return hasActiveChar ? 2 * 60 * 1000 : 5 * 60 * 1000;
+    };
+    
+    let timeoutRef: number | null = null;
+    
+    const scheduleNext = () => {
+      if (document.hidden) return;
+      
+      const interval = getPollingInterval();
+      timeoutRef = window.setTimeout(() => {
+        loadCharacters();
+        scheduleNext();
+      }, interval);
+    };
+    
+    const handleVisibilityChange = () => {
+      if (document.hidden && timeoutRef) {
+        clearTimeout(timeoutRef);
+        timeoutRef = null;
+      } else if (!document.hidden) {
+        scheduleNext();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    scheduleNext();
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (timeoutRef) clearTimeout(timeoutRef);
+    };
+  }, [loadCharacters]);
 
-  const loadHistory = async (fromDate: Date, toDate: Date) => {
+  const loadHistory = useCallback(async (fromDate: Date, toDate: Date) => {
     const newHistory: Record<string, CharacterStats[]> = {};
     await Promise.all(
       characters.map(async (char) => {
@@ -55,7 +86,14 @@ export default function HomePage({ onSelectCharacter }: HomePageProps) {
       })
     );
     setHistoryData(newHistory);
-  };
+  }, [characters]);
+
+  useEffect(() => {
+    if (characters.length > 0) {
+      const dates = getDateRange('24h');
+      loadHistory(dates.from, dates.to);
+    }
+  }, [characters, loadHistory]);
 
   const handleTimeRangeChange = (fromDate: Date, toDate: Date) => {
     loadHistory(fromDate, toDate);
@@ -96,10 +134,10 @@ export default function HomePage({ onSelectCharacter }: HomePageProps) {
     <Layout>
       <div className="text-center mb-10">
         <h1 className="text-3xl md:text-4xl font-bold text-[var(--text-primary)] mb-3">
-          Your Characters
+          Die fast Abiturienten
         </h1>
         <p className="text-[var(--text-secondary)] max-w-md mx-auto">
-          Track your Wynncraft character stats and progression over time
+          tracking...
         </p>
       </div>
 

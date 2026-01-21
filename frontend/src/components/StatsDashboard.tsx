@@ -111,13 +111,51 @@ export default function StatsDashboard({ character }: StatsDashboardProps) {
   const player = character.player;
   const [history, setHistory] = useState<CharacterStats[]>([]);
   const [selectedChart, setSelectedChart] = useState<keyof CharacterStats>('level');
-  const [timeRange, setTimeRange] = useState('7d');
+  const [timeRange, setTimeRange] = useState('24h');
 
   useEffect(() => {
     const dates = getDateRange(timeRange);
-    fetchStatsHistory(character.uuid, dates.from.toISOString(), dates.to.toISOString())
-      .then(setHistory)
-      .catch(() => {});
+    let isActive = character.is_recently_active;
+    
+    const fetchHistory = () => {
+      if (document.hidden) return;
+      
+      fetchStatsHistory(character.uuid, dates.from.toISOString(), dates.to.toISOString())
+        .then(setHistory)
+        .catch(() => {});
+    };
+    
+    fetchHistory();
+    
+    let timeoutRef: number | null = null;
+    
+    const scheduleNext = () => {
+      if (document.hidden) return;
+      
+      const interval = isActive ? 2 * 60 * 1000 : 5 * 60 * 1000;
+      timeoutRef = window.setTimeout(() => {
+        fetchHistory();
+        scheduleNext();
+      }, interval);
+    };
+    
+    const handleVisibilityChange = () => {
+      if (document.hidden && timeoutRef) {
+        clearTimeout(timeoutRef);
+        timeoutRef = null;
+      } else if (!document.hidden) {
+        fetchHistory();
+        scheduleNext();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    scheduleNext();
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (timeoutRef) clearTimeout(timeoutRef);
+    };
   }, [character.uuid, timeRange]);
 
   const handleTimeRangeChange = (range: string, fromDate?: Date, toDate?: Date) => {

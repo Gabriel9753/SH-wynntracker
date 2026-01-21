@@ -140,7 +140,7 @@ function CustomTooltip({ active, payload, label, seriesMap }: CustomTooltipProps
 }
 
 export default function MultiCharacterChart({ series, onTimeRangeChange }: MultiCharacterChartProps) {
-  const [timeRange, setTimeRange] = useState('7d');
+  const [timeRange, setTimeRange] = useState('24h');
   const [selectedStat, setSelectedStat] = useState<keyof CharacterStats>('level');
   const [visibleSeries, setVisibleSeries] = useState<Set<string>>(new Set(series.map(s => s.characterUuid)));
   const [showMoreStats, setShowMoreStats] = useState(false);
