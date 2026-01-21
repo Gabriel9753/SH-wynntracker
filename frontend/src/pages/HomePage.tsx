@@ -97,7 +97,8 @@ export default function HomePage({ onSelectCharacter }: HomePageProps) {
     }
   }, [characters, loadHistory]);
 
-  const handleTimeRangeChange = (fromDate: Date, toDate: Date) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleTimeRangeChange = (fromDate: Date, _toDate: Date) => {
     loadHistory(fromDate);
   };
 
