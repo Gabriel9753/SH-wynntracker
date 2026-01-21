@@ -73,12 +73,14 @@ export default function HomePage({ onSelectCharacter }: HomePageProps) {
     };
   }, [loadCharacters]);
 
-  const loadHistory = useCallback(async (fromDate: Date, toDate: Date) => {
+  const loadHistory = useCallback(async (fromDate: Date, toDate?: Date) => {
     const newHistory: Record<string, CharacterStats[]> = {};
+    const toDateStr = toDate?.toISOString();
+
     await Promise.all(
       characters.map(async (char) => {
         try {
-          const history = await fetchStatsHistory(char.uuid, fromDate.toISOString(), toDate.toISOString());
+          const history = await fetchStatsHistory(char.uuid, fromDate.toISOString(), toDateStr);
           newHistory[char.uuid] = history;
         } catch {
           newHistory[char.uuid] = [];
@@ -91,12 +93,12 @@ export default function HomePage({ onSelectCharacter }: HomePageProps) {
   useEffect(() => {
     if (characters.length > 0) {
       const dates = getDateRange('24h');
-      loadHistory(dates.from, dates.to);
+      loadHistory(dates.from);
     }
   }, [characters, loadHistory]);
 
   const handleTimeRangeChange = (fromDate: Date, toDate: Date) => {
-    loadHistory(fromDate, toDate);
+    loadHistory(fromDate);
   };
 
   const handleSearch = useCallback((query: string) => {

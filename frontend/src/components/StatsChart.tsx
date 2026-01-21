@@ -77,9 +77,6 @@ export default function StatsChart({
   const chartData = useMemo(() => {
     const filtered = data.map(stat => {
       let ts = stat.valid_from;
-      if (typeof ts === 'string' && ts.endsWith('Z')) {
-        ts = ts.slice(0, -1);
-      }
       return {
         timestamp: new Date(ts).getTime(),
         value: stat[dataKey] as number | null,

@@ -211,9 +211,6 @@ export default function MultiCharacterChart({ series, onTimeRangeChange }: Multi
     series.forEach(s => {
       s.data.forEach(stat => {
         let ts = stat.valid_from;
-        if (typeof ts === 'string' && ts.endsWith('Z')) {
-          ts = ts.slice(0, -1);
-        }
         allTimestamps.add(new Date(ts).getTime());
       });
     });
@@ -229,9 +226,6 @@ export default function MultiCharacterChart({ series, onTimeRangeChange }: Multi
         }
         const stat = s.data.find(d => {
           let ts = d.valid_from;
-          if (typeof ts === 'string' && ts.endsWith('Z')) {
-            ts = ts.slice(0, -1);
-          }
           return new Date(ts).getTime() === timestamp;
         });
         if (stat) {
@@ -299,7 +293,7 @@ export default function MultiCharacterChart({ series, onTimeRangeChange }: Multi
   const xDomain = useMemo(() => {
     const dates = getDateRange(timeRange);
     return [dates.from.getTime(), dates.to.getTime()] as [number, number];
-  }, [timeRange]);
+  }, [timeRange, series]);
 
   const xTicks = useMemo(() => {
     const interval = getTickInterval(timeRange);

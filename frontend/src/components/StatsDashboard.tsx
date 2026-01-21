@@ -120,7 +120,7 @@ export default function StatsDashboard({ character }: StatsDashboardProps) {
     const fetchHistory = () => {
       if (document.hidden) return;
       
-      fetchStatsHistory(character.uuid, dates.from.toISOString(), dates.to.toISOString())
+      fetchStatsHistory(character.uuid, dates.from.toISOString())
         .then(setHistory)
         .catch(() => {});
     };
@@ -161,7 +161,7 @@ export default function StatsDashboard({ character }: StatsDashboardProps) {
   const handleTimeRangeChange = (range: string, fromDate?: Date, toDate?: Date) => {
     setTimeRange(range);
     if (fromDate && toDate) {
-      fetchStatsHistory(character.uuid, fromDate.toISOString(), toDate.toISOString())
+      fetchStatsHistory(character.uuid, fromDate.toISOString())
         .then(setHistory)
         .catch(() => {});
     }
