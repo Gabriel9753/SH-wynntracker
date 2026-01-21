@@ -18,6 +18,20 @@ function getClassIcon(classType: string): string | null {
   return classIconMap[key] || null;
 }
 
+function formatLastUpdate(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+
+  if (diffMinutes < 1) return 'just now';
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString('de-DE');
+}
+
 interface CharacterCardProps {
   character: Character;
   playerName?: string;
@@ -25,61 +39,58 @@ interface CharacterCardProps {
   playtime?: number | null;
   xpPercent?: number | null;
   isRecentlyActive?: boolean;
-  isMaxLevel?: boolean;
-  isMaxPlaytime?: boolean;
+  lastUpdate?: string | null;
   onClick: (uuid: string) => void;
 }
 
-export default function CharacterCard({ 
-  character, 
+export default function CharacterCard({
+  character,
   playerName,
   level,
   playtime,
   xpPercent,
   isRecentlyActive = false,
-  isMaxLevel = false,
-  isMaxPlaytime = false,
-  onClick 
+  lastUpdate,
+  onClick
 }: CharacterCardProps) {
   const displayName = playerName || character.nickname || 'Unknown';
   const classType = character.type || 'Unknown';
   const classIcon = getClassIcon(classType);
-  
+
   return (
     <div
-      className="card cursor-pointer"
+      className="card cursor-pointer character-card-compact"
       onClick={() => onClick(character.uuid)}
     >
-      <div className="flex items-start justify-between mb-4">
+      <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
           {classIcon ? (
-            <img 
-              src={classIcon} 
-              alt={classType} 
-              className="w-12 h-14 object-contain"
+            <img
+              src={classIcon}
+              alt={classType}
+              className="w-10 h-12 object-contain"
             />
           ) : (
             <div className={`online-indicator ${isRecentlyActive ? 'active' : ''}`} />
           )}
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-lg font-medium text-[var(--text-primary)]">
+              <h3 className="text-base font-medium text-[var(--text-primary)]">
                 {displayName}
               </h3>
               {classIcon && (
-                <div className={`online-indicator ${isRecentlyActive ? 'active' : ''}`} style={{ width: '8px', height: '8px' }} />
+                <div className={`online-indicator ${isRecentlyActive ? 'active' : ''}`} style={{ width: '6px', height: '6px' }} />
               )}
             </div>
-            <p className="text-sm text-[var(--text-secondary)]">
+            <p className="text-xs text-[var(--text-secondary)]">
               {classType}
             </p>
           </div>
         </div>
         {level != null && (
           <div className="text-right">
-            <div className={`text-2xl font-bold ${isMaxLevel ? 'text-[var(--accent-primary)]' : 'text-[var(--text-primary)]'}`}>
+            <div className="text-xl font-bold text-[var(--text-primary)]">
               {level}
-              {isMaxLevel && <span className="text-xs ml-1">👑</span>}
             </div>
             <div className="text-xs text-[var(--text-muted)] uppercase tracking-wide">
               Level
@@ -87,29 +98,28 @@ export default function CharacterCard({
           </div>
         )}
       </div>
-      
+
       {xpPercent != null && (
-        <div className="mb-4">
-          <div className="flex justify-between text-xs text-[var(--text-secondary)] mb-2">
-            <span>XP Progress</span>
+        <div className="mb-2">
+          <div className="flex justify-between text-xs text-[var(--text-secondary)] mb-1">
+            <span>XP</span>
             <span className="font-medium">{xpPercent.toFixed(1)}%</span>
           </div>
-          <div className="progress-bar">
+          <div className="progress-bar h-1.5">
             <div className="progress-fill" style={{ width: `${Math.min(xpPercent, 100)}%` }} />
           </div>
         </div>
       )}
-      
-      <div className="flex items-center justify-between text-sm">
+
+      <div className="flex items-center justify-between text-xs mt-2">
         {playtime != null && (
-          <span className={isMaxPlaytime ? 'text-[var(--accent-secondary)] font-medium' : 'text-[var(--text-muted)]'}>
+          <span className="text-[var(--text-muted)]">
             {playtime.toFixed(1)}h played
-            {isMaxPlaytime && <span className="ml-1">⏱️</span>}
           </span>
         )}
-        {isRecentlyActive && (
-          <span className="text-[var(--online-color)] text-xs font-medium">
-            Active
+        {lastUpdate && (
+          <span className="text-[var(--text-muted)]">
+            {formatLastUpdate(lastUpdate)}
           </span>
         )}
       </div>

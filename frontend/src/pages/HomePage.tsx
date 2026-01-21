@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { CharacterWithStats } from '../types';
-import { fetchCharacters, addCharacter } from '../services/api';
+import type { CharacterWithStats, CharacterStats } from '../types';
+import { fetchCharacters, addCharacter, fetchStatsHistory } from '../services/api';
 import Layout from '../components/Layout';
 import CharacterCard from '../components/CharacterCard';
 import CharacterSearch from '../components/CharacterSearch';
-import ComparisonChart from '../components/ComparisonChart';
+import MultiCharacterChart, { CHART_COLORS } from '../components/MultiCharacterChart';
+import type { DataSeries } from '../components/MultiCharacterChart';
+import { getDateRange } from '../components/TimeRangePicker';
 
 interface HomePageProps {
   onSelectCharacter: (uuid: string) => void;
@@ -14,6 +16,7 @@ export default function HomePage({ onSelectCharacter }: HomePageProps) {
   const [characters, setCharacters] = useState<CharacterWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [historyData, setHistoryData] = useState<Record<string, CharacterStats[]>>({});
 
   const loadCharacters = useCallback(async (search?: string) => {
     try {
@@ -32,6 +35,32 @@ export default function HomePage({ onSelectCharacter }: HomePageProps) {
     loadCharacters();
   }, [loadCharacters]);
 
+  useEffect(() => {
+    if (characters.length > 0) {
+      const dates = getDateRange('7d');
+      loadHistory(dates.from, dates.to);
+    }
+  }, [characters]);
+
+  const loadHistory = async (fromDate: Date, toDate: Date) => {
+    const newHistory: Record<string, CharacterStats[]> = {};
+    await Promise.all(
+      characters.map(async (char) => {
+        try {
+          const history = await fetchStatsHistory(char.uuid, fromDate.toISOString(), toDate.toISOString());
+          newHistory[char.uuid] = history;
+        } catch {
+          newHistory[char.uuid] = [];
+        }
+      })
+    );
+    setHistoryData(newHistory);
+  };
+
+  const handleTimeRangeChange = (fromDate: Date, toDate: Date) => {
+    loadHistory(fromDate, toDate);
+  };
+
   const handleSearch = useCallback((query: string) => {
     loadCharacters(query);
   }, [loadCharacters]);
@@ -46,21 +75,22 @@ export default function HomePage({ onSelectCharacter }: HomePageProps) {
     }
   }, [loadCharacters]);
 
-  const { maxLevel, maxPlaytime } = useMemo(() => {
-    if (characters.length === 0) return { maxLevel: 0, maxPlaytime: 0 };
-    
-    const levels = characters
-      .map(c => c.current_stats?.level || 0)
-      .filter(l => l > 0);
-    const playtimes = characters
-      .map(c => c.current_stats?.playtime_hours || 0)
-      .filter(p => p > 0);
-    
-    return {
-      maxLevel: levels.length > 0 ? Math.max(...levels) : 0,
-      maxPlaytime: playtimes.length > 0 ? Math.max(...playtimes) : 0,
-    };
+  const sortedCharacters = useMemo(() => {
+    return [...characters].sort((a, b) => {
+      const levelA = a.current_stats?.level || 0;
+      const levelB = b.current_stats?.level || 0;
+      return levelB - levelA;
+    });
   }, [characters]);
+
+  const chartSeries: DataSeries[] = useMemo(() => {
+    return sortedCharacters.map((char, idx) => ({
+      characterUuid: char.uuid,
+      characterName: char.player?.username || char.nickname || 'Unknown',
+      color: CHART_COLORS[idx % CHART_COLORS.length],
+      data: historyData[char.uuid] || [],
+    }));
+  }, [sortedCharacters, historyData]);
 
   return (
     <Layout>
@@ -87,35 +117,35 @@ export default function HomePage({ onSelectCharacter }: HomePageProps) {
         </div>
       ) : characters.length === 0 ? (
         <div className="empty-state py-16">
-          <div className="text-4xl mb-4">🎮</div>
+          <div className="text-4xl mb-4">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" className="mx-auto opacity-50">
+              <path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 10H3V8h18v8zM6 15h2v-2h2v-2H8V9H6v2H4v2h2z"/>
+            </svg>
+          </div>
           <p className="text-lg mb-2">No characters found</p>
           <p className="text-sm">Add a character using the button above</p>
         </div>
       ) : (
         <>
-          <ComparisonChart characters={characters} />
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-            {characters.map(character => {
-              const level = character.current_stats?.level || 0;
-              const playtime = character.current_stats?.playtime_hours || 0;
-              
-              return (
-                <CharacterCard
-                  key={character.uuid}
-                  character={character}
-                  playerName={character.player?.username}
-                  level={character.current_stats?.level}
-                  playtime={character.current_stats?.playtime_hours}
-                  xpPercent={character.current_stats?.xp_percent}
-                  isRecentlyActive={character.is_recently_active}
-                  isMaxLevel={level > 0 && level === maxLevel && characters.length > 1}
-                  isMaxPlaytime={playtime > 0 && playtime === maxPlaytime && characters.length > 1}
-                  onClick={onSelectCharacter}
-                />
-              );
-            })}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            {sortedCharacters.map(character => (
+              <CharacterCard
+                key={character.uuid}
+                character={character}
+                playerName={character.player?.username}
+                level={character.current_stats?.level}
+                playtime={character.current_stats?.playtime_hours}
+                xpPercent={character.current_stats?.xp_percent}
+                isRecentlyActive={character.is_recently_active}
+                lastUpdate={character.current_stats?.valid_from}
+                onClick={onSelectCharacter}
+              />
+            ))}
           </div>
+
+          {chartSeries.length >= 1 && (
+            <MultiCharacterChart series={chartSeries} onTimeRangeChange={handleTimeRangeChange} />
+          )}
         </>
       )}
     </Layout>

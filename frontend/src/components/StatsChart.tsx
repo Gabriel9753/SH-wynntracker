@@ -1,194 +1,150 @@
-import { useState, useMemo, useRef } from 'react';
+import { useMemo } from 'react';
+import {
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Area,
+  AreaChart,
+} from 'recharts';
 import type { CharacterStats } from '../types';
 
 interface StatsChartProps {
   data: CharacterStats[];
   dataKey: keyof CharacterStats;
   label: string;
+  color?: string;
+  timeRange?: string;
 }
 
-interface DataPoint {
-  date: Date;
-  value: number;
-  label: string;
+function formatXAxisTick(timestamp: number, rangeKey: string): string {
+  const date = new Date(timestamp);
+  switch (rangeKey) {
+    case 'today':
+    case '24h':
+      return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    case '3d':
+      return `${date.getDate()}.${date.getMonth() + 1} ${date.getHours()}:00`;
+    case '7d':
+      return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+    case '30d':
+      return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+    default:
+      return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+  }
 }
 
-export default function StatsChart({ data, dataKey, label }: StatsChartProps) {
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const svgRef = useRef<SVGSVGElement>(null);
+function getTickInterval(rangeKey: string): number {
+  switch (rangeKey) {
+    case 'today':
+    case '24h':
+      return 60 * 60 * 1000;
+    case '3d':
+      return 6 * 60 * 60 * 1000;
+    case '7d':
+      return 24 * 60 * 60 * 1000;
+    case '30d':
+      return 3 * 24 * 60 * 60 * 1000;
+    default:
+      return 24 * 60 * 60 * 1000;
+  }
+}
 
+function formatValue(value: number): string {
+  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
+  return value.toFixed(Number.isInteger(value) ? 0 : 1);
+}
+
+export default function StatsChart({ 
+  data, 
+  dataKey, 
+  label, 
+  color = '#6366f1',
+  timeRange = '7d'
+}: StatsChartProps) {
   const chartData = useMemo(() => {
-    const formattedData = data
-      .map(stat => ({
-        date: new Date(stat.valid_from),
-        value: stat[dataKey] as number | null,
-        label: new Date(stat.valid_from).toLocaleDateString('de-DE', {
-          day: '2-digit',
-          month: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
-      }))
-      .filter((d): d is DataPoint => d.value != null)
-      .sort((a, b) => a.date.getTime() - b.date.getTime());
-
-    const MAX_POINTS = 150;
-    if (formattedData.length <= MAX_POINTS) {
-      return formattedData;
-    }
-
-    const step = Math.ceil(formattedData.length / MAX_POINTS);
-    return formattedData.filter((_, index) => index % step === 0 || index === formattedData.length - 1);
+    return data.map(stat => ({
+      timestamp: new Date(stat.valid_from).getTime(),
+      value: stat[dataKey] as number | null,
+    })).filter(d => d.value !== null && d.value !== undefined);
   }, [data, dataKey]);
+
+  const xTicks = useMemo(() => {
+    if (chartData.length === 0) return [];
+    const interval = getTickInterval(timeRange);
+    const minTime = chartData[0]?.timestamp || 0;
+    const maxTime = chartData[chartData.length - 1]?.timestamp || 0;
+
+    const ticks: number[] = [];
+    const startTick = Math.ceil(minTime / interval) * interval;
+    for (let t = startTick; t <= maxTime; t += interval) {
+      ticks.push(t);
+    }
+    return ticks;
+  }, [chartData, timeRange]);
 
   if (chartData.length < 2) {
     return (
       <div className="chart-container flex items-center justify-center h-48">
-        <p className="text-[var(--text-muted)] text-sm">Not enough data points</p>
+        <p className="text-[var(--text-muted)] text-sm">Not enough data to display chart</p>
       </div>
     );
   }
 
-  // Chart dimensions
-  const width = 600;
-  const height = 200;
-  const padding = { top: 20, right: 20, bottom: 40, left: 60 };
-  const chartWidth = width - padding.left - padding.right;
-  const chartHeight = height - padding.top - padding.bottom;
-
-  // Calculate scales
-  const values = chartData.map(d => d.value);
-  const minVal = Math.min(...values);
-  const maxVal = Math.max(...values);
-  const valueRange = maxVal - minVal || 1;
-  const yPadding = valueRange * 0.1;
-
-  const xScale = (index: number) => 
-    padding.left + (index / (chartData.length - 1)) * chartWidth;
-  
-  const yScale = (value: number) => 
-    padding.top + chartHeight - ((value - minVal + yPadding) / (valueRange + yPadding * 2)) * chartHeight;
-
-  // Generate path
-  const pathD = chartData
-    .map((point, i) => `${i === 0 ? 'M' : 'L'} ${xScale(i)} ${yScale(point.value)}`)
-    .join(' ');
-
-  // Generate area path
-  const areaD = `${pathD} L ${xScale(chartData.length - 1)} ${padding.top + chartHeight} L ${xScale(0)} ${padding.top + chartHeight} Z`;
-
-  // Y-axis ticks
-  const yTicks = 5;
-  const yTickValues = Array.from({ length: yTicks }, (_, i) => 
-    minVal + (valueRange / (yTicks - 1)) * i
-  );
-
-  // Format value for display
-  const formatValue = (value: number) => {
-    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-    if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
-    return value.toFixed(Number.isInteger(value) ? 0 : 1);
-  };
-
   return (
     <div className="chart-container">
-      <div className="text-sm font-medium text-[var(--text-secondary)] mb-4">{label} Over Time</div>
-      <div className="relative">
-        <svg
-          ref={svgRef}
-          viewBox={`0 0 ${width} ${height}`}
-          className="w-full h-auto"
-          style={{ minHeight: '180px' }}
-        >
-          {yTickValues.map((tick, i) => (
-            <line
-              key={i}
-              x1={padding.left}
-              x2={width - padding.right}
-              y1={yScale(tick)}
-              y2={yScale(tick)}
-              stroke="var(--border-color)"
-              strokeDasharray="4,4"
-            />
-          ))}
-
+      <ResponsiveContainer width="100%" height={220}>
+        <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 10 }}>
           <defs>
-            <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--accent-primary)" stopOpacity="0.3" />
-              <stop offset="100%" stopColor="var(--accent-primary)" stopOpacity="0" />
+            <linearGradient id={`gradient-${dataKey}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+              <stop offset="95%" stopColor={color} stopOpacity={0} />
             </linearGradient>
           </defs>
-          <path d={areaD} fill="url(#areaGradient)" />
-
-          <path
-            d={pathD}
-            fill="none"
-            stroke="var(--accent-primary)"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" strokeOpacity={0.5} />
+          <XAxis
+            dataKey="timestamp"
+            type="number"
+            domain={['dataMin', 'dataMax']}
+            ticks={xTicks}
+            tickFormatter={(value) => formatXAxisTick(value, timeRange)}
+            stroke="var(--text-muted)"
+            fontSize={11}
+            tickLine={false}
+            axisLine={{ stroke: 'var(--border-color)' }}
           />
-
-          {chartData.map((point, i) => (
-            <circle
-              key={i}
-              cx={xScale(i)}
-              cy={yScale(point.value)}
-              r={hoveredIndex === i ? 6 : 4}
-              fill="var(--accent-primary)"
-              stroke="var(--bg-card)"
-              strokeWidth="2"
-              className="cursor-pointer transition-all duration-150"
-              onMouseEnter={() => setHoveredIndex(i)}
-              onMouseLeave={() => setHoveredIndex(null)}
-            />
-          ))}
-
-          {yTickValues.map((tick, i) => (
-            <text
-              key={i}
-              x={padding.left - 10}
-              y={yScale(tick)}
-              textAnchor="end"
-              dominantBaseline="middle"
-              className="text-xs fill-[var(--text-muted)]"
-            >
-              {formatValue(tick)}
-            </text>
-          ))}
-
-          <text
-            x={padding.left}
-            y={height - 10}
-            textAnchor="start"
-            className="text-xs fill-[var(--text-muted)]"
-          >
-            {chartData[0].date.toLocaleDateString('de-DE')}
-          </text>
-          <text
-            x={width - padding.right}
-            y={height - 10}
-            textAnchor="end"
-            className="text-xs fill-[var(--text-muted)]"
-          >
-            {chartData[chartData.length - 1].date.toLocaleDateString('de-DE')}
-          </text>
-        </svg>
-
-        {hoveredIndex !== null && (
-          <div
-            className="tooltip absolute pointer-events-none transform -translate-x-1/2 -translate-y-full"
-            style={{
-              left: `${(xScale(hoveredIndex) / width) * 100}%`,
-              top: `${(yScale(chartData[hoveredIndex].value) / height) * 100}%`,
-              marginTop: '-12px'
+          <YAxis
+            stroke="var(--text-muted)"
+            fontSize={11}
+            tickFormatter={formatValue}
+            tickLine={false}
+            axisLine={{ stroke: 'var(--border-color)' }}
+            width={50}
+          />
+          <Tooltip
+            contentStyle={{
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '8px',
+              fontSize: '12px',
             }}
-          >
-            <div className="font-medium">{formatValue(chartData[hoveredIndex].value)}</div>
-            <div className="text-[var(--text-muted)]">{chartData[hoveredIndex].label}</div>
-          </div>
-        )}
-      </div>
+            labelFormatter={(value) => new Date(value).toLocaleString('de-DE')}
+            formatter={(value: number | undefined) => value !== undefined ? [formatValue(value), label] : ['', label]}
+          />
+          <Area
+            type="monotone"
+            dataKey="value"
+            name={label}
+            stroke={color}
+            strokeWidth={2.5}
+            fill={`url(#gradient-${dataKey})`}
+            dot={false}
+            activeDot={{ r: 5, strokeWidth: 2, stroke: '#fff' }}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
     </div>
   );
 }
